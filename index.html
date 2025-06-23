@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventário de Ferramentas por Procedimento</title>
+    <link type="text/css" rel="stylesheet" href="resources/sheet.css">
+    <style type="text/css">
+        /* Estilos da planilha Google (copiados do seu input) */
+        .ritz .waffle a { color: inherit; }
+        .ritz .waffle .s0 { border-bottom: 1px SOLID #000000; border-right: 1px SOLID #000000; background-color: #ffffff; text-align: center; color: #000000; font-family: Arial; font-size: 10pt; vertical-align: bottom; white-space: nowrap; direction: ltr; padding: 2px 3px 2px 3px; }
+        .ritz .waffle .s1 { border-bottom: 1px SOLID #000000; border-right: 1px SOLID #000000; background-color: #ffffff; text-align: center; color: #000000; font-family: Arial; font-size: 10pt; vertical-align: middle; white-space: normal; /* Modificado para permitir quebra de linha */ direction: ltr; padding: 2px 3px 2px 3px; }
+        /* Ajuste para centralizar o texto nas células S0 e S1 e permitir quebra de linha nas células de conteúdo */
+
+        /* Nossos estilos personalizados */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f8f8f8;
+            color: #333;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap; /* Permite que os containers quebrem linha se não houver espaço */
+            justify-content: center; /* Centraliza os containers horizontalmente */
+        }
+
+        .container {
+            background-color: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1, h2 {
+            color: #0056b3;
+        }
+
+        /* Estilos para a lista de procedimentos */
+        #procedimentoList {
+            width: 300px;
+            background-color: #e6f7ff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.05);
+            flex-shrink: 0; /* Não permite que este item encolha */
+        }
+
+        #procedimentoList h2 {
+            margin-top: 0;
+            color: #0056b3;
+        }
+
+        #procedimentoList ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        #procedimentoList li {
+            margin-bottom: 8px;
+            cursor: pointer;
+            padding: 10px 15px;
+            background-color: #cceeff;
+            border-radius: 5px;
+            transition: background-color 0.2s ease;
+        }
+
+        #procedimentoList li:hover {
+            background-color: #99ddff;
+        }
+
+        #procedimentoList li.selected-procedure {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0, 123, 255, 0.3);
+        }
+
+        /* Estilos para os Gaveteiros */
+        .gaveteiro-container {
+            flex: 1; /* Permite que o gaveteiro ocupe o espaço restante */
+            min-width: 400px; /* Largura mínima para cada gaveteiro */
+            max-width: calc(50% - 30px); /* Para dois gaveteiros lado a lado, considerando o gap */
+            display: flex; /* Para flexbox interno */
+            flex-direction: column; /* Organiza título e tabela em coluna */
+            align-items: center; /* Centraliza o título */
+        }
+        .gaveteiro-container h2 {
+            text-align: center;
+            color: #0056b3;
+            margin-bottom: 15px;
+        }
+
+        /* Estilos para a tabela da planilha */
+        .ritz.grid-container {
+            overflow-x: auto; /* Adiciona scroll se a tabela for muito larga */
+            border: 1px solid #ccc; /* Borda ao redor de cada gaveteiro */
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .waffle {
+            width: 100%; /* Garante que ela ocupe 100% do container */
+            border-collapse: collapse;
+            table-layout: fixed; /* Fixa o layout da tabela */
+        }
+        .waffle th, .waffle td {
+            white-space: normal; /* Permite quebra de linha */
+            word-wrap: break-word; /* Garante que palavras longas quebrem */
+            text-align: center; /* Centraliza o conteúdo das células */
+            vertical-align: middle; /* Centraliza verticalmente */
+            height: 60px; /* Aumenta a altura das células para acomodar mais texto */
+            padding: 5px; /* Ajusta o padding */
+        }
+        /* Estilos específicos para as células de indexadores (1-8 e a-h) */
+        .row-headers-background, .column-headers-background {
+            background-color: #e0e0e0 !important; /* Cor de fundo para cabeçalhos */
+            font-weight: bold;
+        }
+
+
+        /* Estilo para a célula destacada */
+        .highlighted-tool-cell {
+            background-color: #ffeb3b !important; /* Amarelo, !important para sobrescrever outros estilos */
+            font-weight: bold;
+            box-shadow: 0 0 8px rgba(255, 235, 59, 0.7);
+            transition: background-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+            transform: scale(1.02); /* Pequeno efeito de zoom */
+            border: 2px solid #ffc107 !important; /* Borda amarela mais forte */
+        }
+    </style>
+</head>
+<body>
+
+    <div id="procedimentoList" class="container">
+        <h2>Selecione um Procedimento:</h2>
+        <ul id="procedureItems">
+            <li>Carregando procedimentos...</li>
+        </ul>
+    </div>
+
+    <div id="gaveteiro1-container" class="container gaveteiro-container">
+        <h2 id="gaveteiro1-title">Gaveteiro 1</h2>
+        <div class="ritz grid-container" dir="ltr">
+            <table class="waffle" cellspacing="0" cellpadding="0" id="gaveteiro1-matrix-table">
+                <thead>
+                    <tr>
+                        <th class="row-header freezebar-origin-ltr"></th>
+                        <th style="width:100px;" class="column-headers-background"></th>
+                        <th style="width:100px;" class="column-headers-background"></th>
+                        <th style="width:100px;" class="column-headers-background"></th>
+                        <th style="width:100px;" class="column-headers-background"></th>
+                        <th style="width:100px;" class="column-headers-background"></th>
+                        <th style="width:100px;" class="column-headers-background"></th>
+                        <th style="width:100px;" class="column-headers-background"></th>
+                        <th style="width:100px;" class="column-headers-background"></th>
+                        <th style="width:100px;" class="column-headers-background"></th> </tr>
+                </thead>
+                <tbody>
+                    <tr style="height: 20px" data-row-type="col-headers">
+                        <th class="row-headers-background"><div class="row-header-wrapper" style="line-height: 20px"></div></th>
+                        <td class="s0" dir="ltr"></td> <td class="s0" dir="ltr" data-col-key="a">a</td>
+                        <td class="s0" dir="ltr" data-col-key="b">b</td>
+                        <td class="s0" dir="ltr" data-col-key="c">c</td>
+                        <td class="s0" dir="ltr" data-col-key="d">d</td>
+                        <td class="s0" dir="ltr" data-col-key="e">e</td>
+                        <td class="s0" dir="ltr" data-col-key="f">f</td>
+                        <td class="s0" dir="ltr" data-col-key="g">g</td>
+                        <td class="s0" dir="ltr" data-col-key="h">h</td>
+                    </tr>
+                    <tr style="height: 20px" data-row-key="1">
+                        <th class="row-headers-background"><div class="row-header-wrapper" style="line-height: 20px">1</div></th>
+                        <td class="s1" dir="ltr"></td> <td class="s1" dir="ltr" data-col-key="a" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="b" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="c" data-gaveteiro="gavete1"></td><td class="s1" dir="ltr" data-col-key="d" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="e" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="f" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="g" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="h" data-gaveteiro="gaveteiro1"></td>
+                    </tr>
+                    <tr style="height: 20px" data-row-key="2">
+                        <th class="row-headers-background"><div class="row-header-wrapper" style="line-height: 20px">2</div></th>
+                        <td class="s1" dir="ltr"></td>
+                        <td class="s1" dir="ltr" data-col-key="a" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="b" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="c" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="d" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="e" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="f" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="g" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="h" data-gaveteiro="gaveteiro1"></td>
+                    </tr>
+                    <tr style="height: 20px" data-row-key="3">
+                        <th class="row-headers-background"><div class="row-header-wrapper" style="line-height: 20px">3</div></th>
+                        <td class="s1" dir="ltr"></td>
+                        <td class="s1" dir="ltr" data-col-key="a" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="b" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="c" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="d" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="e" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="f" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="g" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="h" data-gaveteiro="gaveteiro1"></td>
+                    </tr>
+                    <tr style="height: 20px" data-row-key="4">
+                        <th class="row-headers-background"><div class="row-header-wrapper" style="line-height: 20px">4</div></th>
+                        <td class="s1" dir="ltr"></td>
+                        <td class="s1" dir="ltr" data-col-key="a" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="b" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="c" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="d" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="e" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="f" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="g" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="h" data-gaveteiro="gaveteiro1"></td>
+                    </tr>
+                    <tr style="height: 20px" data-row-key="5">
+                        <th class="row-headers-background"><div class="row-header-wrapper" style="line-height: 20px">5</div></th>
+                        <td class="s1" dir="ltr"></td>
+                        <td class="s1" dir="ltr" data-col-key="a" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="b" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="c" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="d" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="e" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="f" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="g" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="h" data-gaveteiro="gaveteiro1"></td>
+                    </tr>
+                    <tr style="height: 20px" data-row-key="6">
+                        <th class="row-headers-background"><div class="row-header-wrapper" style="line-height: 20px">6</div></th>
+                        <td class="s1" dir="ltr"></td>
+                        <td class="s1" dir="ltr" data-col-key="a" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="b" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="c" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="d" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="e" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="f" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="g" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="h" data-gaveteiro="gaveteiro1"></td>
+                    </tr>
+                    <tr style="height: 20px" data-row-key="7">
+                        <th class="row-headers-background"><div class="row-header-wrapper" style="line-height: 20px">7</div></th>
+                        <td class="s1" dir="ltr"></td>
+                        <td class="s1" dir="ltr" data-col-key="a" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="b" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="c" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="d" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="e" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="f" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="g" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="h" data-gaveteiro="gaveteiro1"></td>
+                    </tr>
+                    <tr style="height: 20px" data-row-key="8">
+                        <th class="row-headers-background"><div class="row-header-wrapper" style="line-height: 20px">8</div></th>
+                        <td class="s1" dir="ltr"></td>
+                        <td class="s1" dir="ltr" data-col-key="a" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="b" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="c" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="d" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="e" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="f" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="g" data-gaveteiro="gaveteiro1"></td><td class="s1" dir="ltr" data-col-key="h" data-gaveteiro="gaveteiro1"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="gaveteiro2-container" class="container gaveteiro-container">
+        <h2 id="gaveteiro2-title">Gaveteiro 2</h2>
+        <div class="ritz grid-container" dir="ltr">
+            <table class="waffle" cellspacing="0" cellpadding="0" id="gaveteiro2-matrix-table">
+                <thead>
+                    <tr>
+                        <th class="row-header freezebar-origin-ltr"></th>
+                        <th style="width:100px;" class="column-headers-background"></th>
+                        <th style="width:100px;" class="column-headers-background"></th>
+                        <th style="width:100px;" class="column-headers-background"></th>
+                        <th style="width:100px;" class="column-headers-background"></th>
+                        <th style="width:100px;" class="column-headers-background"></th>
+                        <th style="width:100px;" class="column-headers-background"></th>
+                        <th style="width:100px;" class="column-headers-background"></th>
+                        <th style="width:100px;" class="column-headers-background"></th>
+                        <th style="width:100px;" class="column-headers-background"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="height: 20px" data-row-type="col-headers">
+                        <th class="row-headers-background"><div class="row-header-wrapper" style="line-height: 20px"></div></th>
+                        <td class="s0" dir="ltr"></td> <td class="s0" dir="ltr" data-col-key="a">a</td>
+                        <td class="s0" dir="ltr" data-col-key="b">b</td>
+                        <td class="s0" dir="ltr" data-col-key="c">c</td>
+                        <td class="s0" dir="ltr" data-col-key="d">d</td>
+                        <td class="s0" dir="ltr" data-col-key="e">e</td>
+                        <td class="s0" dir="ltr" data-col-key="f">f</td>
+                        <td class="s0" dir="ltr" data-col-key="g">g</td>
+                        <td class="s0" dir="ltr" data-col-key="h">h</td>
+                        <td class="s0" dir="ltr" data-col-key="i">i</td>
+                    </tr>
+                    <tr style="height: 20px" data-row-key="1">
+                        <th class="row-headers-background"><div class="row-header-wrapper" style="line-height: 20px">1</div></th>
+                        <td class="s1" dir="ltr"></td>
+                        <td class="s1" dir="ltr" data-col-key="a" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="b" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="c" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="d" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="e" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="f" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="g" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="h" data-gaveteiro="gaveteiro2"></td>
+                    </tr>
+                    <tr style="height: 20px" data-row-key="2">
+                        <th class="row-headers-background"><div class="row-header-wrapper" style="line-height: 20px">2</div></th>
+                        <td class="s1" dir="ltr"></td>
+                        <td class="s1" dir="ltr" data-col-key="a" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="b" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="c" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="d" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="e" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="f" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="g" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="h" data-gaveteiro="gaveteiro2"></td>
+                    </tr>
+                    <tr style="height: 20px" data-row-key="3">
+                        <th class="row-headers-background"><div class="row-header-wrapper" style="line-height: 20px">3</div></th>
+                        <td class="s1" dir="ltr"></td>
+                        <td class="s1" dir="ltr" data-col-key="a" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="b" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="c" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="d" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="e" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="f" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="g" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="h" data-gaveteiro="gaveteiro2"></td>
+                    </tr>
+                    <tr style="height: 20px" data-row-key="4">
+                        <th class="row-headers-background"><div class="row-header-wrapper" style="line-height: 20px">4</div></th>
+                        <td class="s1" dir="ltr"></td>
+                        <td class="s1" dir="ltr" data-col-key="a" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="b" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="c" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="d" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="e" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="f" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="g" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="h" data-gaveteiro="gaveteiro2"></td>
+                    </tr>
+                    <tr style="height: 20px" data-row-key="5">
+                        <th class="row-headers-background"><div class="row-header-wrapper" style="line-height: 20px">5</div></th>
+                        <td class="s1" dir="ltr"></td>
+                        <td class="s1" dir="ltr" data-col-key="a" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="b" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="c" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="d" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="e" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="f" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="g" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="h" data-gaveteiro="gaveteiro2"></td>
+                    </tr>
+                    <tr style="height: 20px" data-row-key="6">
+                        <th class="row-headers-background"><div class="row-header-wrapper" style="line-height: 20px">6</div></th>
+                        <td class="s1" dir="ltr"></td>
+                        <td class="s1" dir="ltr" data-col-key="a" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="b" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="c" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="d" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="e" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="f" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="g" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="h" data-gaveteiro="gaveteiro2"></td>
+                    </tr>
+                    <tr style="height: 20px" data-row-key="7">
+                        <th class="row-headers-background"><div class="row-header-wrapper" style="line-height: 20px">7</div></th>
+                        <td class="s1" dir="ltr"></td>
+                        <td class="s1" dir="ltr" data-col-key="a" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="b" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="c" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="d" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="e" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="f" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="g" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="h" data-gaveteiro="gaveteiro2"></td>
+                    </tr>
+                    <tr style="height: 20px" data-row-key="8">
+                        <th class="row-headers-background"><div class="row-header-wrapper" style="line-height: 20px">8</div></th>
+                        <td class="s1" dir="ltr"></td>
+                        <td class="s1" dir="ltr" data-col-key="a" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="b" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="c" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="d" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="e" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="f" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="g" data-gaveteiro="gaveteiro2"></td><td class="s1" dir="ltr" data-col-key="h" data-gaveteiro="gaveteiro2"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+
+    <script>
+        let allData = {}; // Objeto para armazenar os dados do JSON
+
+        // O JSON que define seus procedimentos, ferramentas e a relação com a matriz
+        const jsonData = {
+						   "gaveteiros":[
+							  {
+								 "id":"gaveteiro1",
+								 "nome":"Gaveteiro 1 - Ferramentas Comuns"
+							  },
+							  {
+								 "id":"gaveteiro2",
+								 "nome":"Gaveteiro 2 - Ferramentas Específicas"
+							  }
+						   ],
+						   "ferramentas":[
+							  {
+								 "id":"f001",
+								 "nome":"Chave Fenda Pequena",
+								 "classificacao":"Pequena",
+								 "localizacao":{
+									"gaveteiroId":"gaveteiro1",
+									"rowKey":"1",
+									"colKey":"a"
+								 }
+							  },
+							  {
+								 "id":"f002",
+								 "nome":"Alicate Bico Longo",
+								 "classificacao":"Média",
+								 "localizacao":{
+									"gaveteiroId":"gaveteiro1",
+									"rowKey":"1",
+									"colKey":"b"
+								 }
+							  },
+							  {
+								 "id":"f003",
+								 "nome":"Trena 3m",
+								 "classificacao":"Grande",
+								 "localizacao":{
+									"gaveteiroId":"gaveteiro1",
+									"rowKey":"1",
+									"colKey":"c"
+								 }
+							  },
+							  {
+								 "id":"f004",
+								 "nome":"Martelo de Bola",
+								 "classificacao":"Grande",
+								 "localizacao":{
+									"gaveteiroId":"gaveteiro1",
+									"rowKey":"2",
+									"colKey":"a"
+								 }
+							  },
+							  {
+								 "id":"f005",
+								 "nome":"Parafusadeira Manual",
+								 "classificacao":"Média",
+								 "localizacao":{
+									"gaveteiroId":"gaveteiro1",
+									"rowKey":"2",
+									"colKey":"b"
+								 }
+							  },
+							  {
+								 "id":"f006",
+								 "nome":"Nível de Bolha",
+								 "classificacao":"Barato",
+								 "localizacao":{
+									"gaveteiroId":"gaveteiro1",
+									"rowKey":"3",
+									"colKey":"c"
+								 }
+							  },
+							  {
+								 "id":"f007",
+								 "nome":"Testador de Voltagem",
+								 "classificacao":"Novo",
+								 "localizacao":{
+									"gaveteiroId":"gaveteiro1",
+									"rowKey":"4",
+									"colKey":"d"
+								 }
+							  },
+							  {
+								 "id":"f008",
+								 "nome":"Chave Grifo 12 pol.",
+								 "classificacao":"Usado",
+								 "localizacao":{
+									"gaveteiroId":"gaveteiro1",
+									"rowKey":"5",
+									"colKey":"e"
+								 }
+							  },
+							  {
+								 "id":"f009",
+								 "nome":"Broca Aço Rápido 6mm",
+								 "classificacao":"Pequena",
+								 "localizacao":{
+									"gaveteiroId":"gaveteiro1",
+									"rowKey":"6",
+									"colKey":"f"
+								 }
+							  },
+							  {
+								 "id":"f010",
+								 "nome":"Esquadro Combinado",
+								 "classificacao":"Média",
+								 "localizacao":{
+									"gaveteiroId":"gaveteiro1",
+									"rowKey":"7",
+									"colKey":"g"
+								 }
+							  },
+							  {
+								 "id":"f011",
+								 "nome":"Serra Manual",
+								 "classificacao":"Grande",
+								 "localizacao":{
+									"gaveteiroId":"gaveteiro1",
+									"rowKey":"8",
+									"colKey":"h"
+								 }
+							  },
+							  {
+								 "id":"f012",
+								 "nome":"Pistola de Cola Quente",
+								 "classificacao":"Média",
+								 "localizacao":{
+									"gaveteiroId":"gaveteiro2",
+									"rowKey":"1",
+									"colKey":"a"
+								 }
+							  },
+							  {
+								 "id":"f013",
+								 "nome":"Estação de Retrabalho",
+								 "classificacao":"Caro",
+								 "localizacao":{
+									"gaveteiroId":"gaveteiro2",
+									"rowKey":"1",
+									"colKey":"b"
+								 }
+							  },
+							  {
+								 "id":"f014",
+								 "nome":"Chave Torque Calibrada",
+								 "classificacao":"Precisa",
+								 "localizacao":{
+									"gaveteiroId":"gaveteiro2",
+									"rowKey":"2",
+									"colKey":"c"
+								 }
+							  },
+							  {
+								 "id":"f015",
+								 "nome":"Câmera de Inspeção",
+								 "classificacao":"Novo",
+								 "localizacao":{
+									"gaveteiroId":"gaveteiro2",
+									"rowKey":"3",
+									"colKey":"d"
+								 }
+							  },
+							  {
+								 "id":"f016",
+								 "nome":"Extrator de Rolamento",
+								 "classificacao":"Grande",
+								 "localizacao":{
+									"gaveteiroId":"gaveteiro2",
+									"rowKey":"4",
+									"colKey":"e"
+								 }
+							  },
+							  {
+								 "id":"f017",
+								 "nome":"Micrômetro Externo",
+								 "classificacao":"Preciso",
+								 "localizacao":{
+									"gaveteiroId":"gaveteiro2",
+									"rowKey":"5",
+									"colKey":"f"
+								 }
+							  },
+							  {
+								 "id":"f018",
+								 "nome":"Medidor de Espessura",
+								 "classificacao":"Caro",
+								 "localizacao":{
+									"gaveteiroId":"gaveteiro2",
+									"rowKey":"6",
+									"colKey":"g"
+								 }
+							  },
+							  {
+								 "id":"f019",
+								 "nome":"Pinça Antiestática",
+								 "classificacao":"Pequena",
+								 "localizacao":{
+									"gaveteiroId":"gaveteiro2",
+									"rowKey":"7",
+									"colKey":"h"
+								 }
+							  },
+							  {
+								 "id":"f020",
+								 "nome":"Alicate Amperímetro",
+								 "classificacao":"Eletrônico",
+								 "localizacao":{
+									"gaveteiroId":"gaveteiro2",
+									"rowKey":"8",
+									"colKey":"a"
+								 }
+							  }
+						   ],
+						   "procedimentos":[
+							  {
+								 "id":"proc1",
+								 "nome":"Procedimento A - Manutenção Básica",
+								 "ferramentas_ids":[
+									"f001",
+									"f002",
+									"f003"
+								 ]
+							  },
+							  {
+								 "id":"proc2",
+								 "nome":"Procedimento B - Reparo Elétrico Geral",
+								 "ferramentas_ids":[
+									"f007",
+									"f020",
+									"f005"
+								 ]
+							  },
+							  {
+								 "id":"proc3",
+								 "nome":"Procedimento C - Montagem Estrutural",
+								 "ferramentas_ids":[
+									"f004",
+									"f008",
+									"f011"
+								 ]
+							  },
+							  {
+								 "id":"proc4",
+								 "nome":"Procedimento D - Medição e Verificação",
+								 "ferramentas_ids":[
+									"f003",
+									"f006",
+									"f010",
+									"f017",
+									"f018"
+								 ]
+							  },
+							  {
+								 "id":"proc5",
+								 "nome":"Procedimento E - Soldagem de Componentes",
+								 "ferramentas_ids":[
+									"f012",
+									"f013",
+									"f019"
+								 ]
+							  },
+							  {
+								 "id":"proc6",
+								 "nome":"Procedimento F - Remoção de Peças Grandes",
+								 "ferramentas_ids":[
+									"f008",
+									"f016"
+								 ]
+							  },
+							  {
+								 "id":"proc7",
+								 "nome":"Procedimento G - Inspeção Detalhada",
+								 "ferramentas_ids":[
+									"f015",
+									"f007"
+								 ]
+							  },
+							  {
+								 "id":"proc8",
+								 "nome":"Procedimento H - Instalação de Sensores",
+								 "ferramentas_ids":[
+									"f001",
+									"f014",
+									"f019"
+								 ]
+							  }
+						   ]
+						};
+
+        // Mapeia gaveteiroId -> rowKey -> colKey -> DOM element (td)
+        const cellMap = new Map();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            allData = jsonData; // Carrega os dados JSON
+
+            // Configura os nomes dos gaveteiros
+            allData.gaveteiros.forEach(gaveteiro => {
+                const titleElement = document.getElementById(`${gaveteiro.id}-title`);
+                if (titleElement) {
+                    titleElement.textContent = gaveteiro.nome;
+                }
+            });
+
+            // Preenche as matrizes dos gaveteiros com os dados das ferramentas
+            setupGaveteiroMatrices();
+
+            // Renderiza a lista de procedimentos na UI
+            renderProceduresList(allData.procedimentos);
+        });
+
+        function setupGaveteiroMatrices() {
+            allData.gaveteiros.forEach(gaveteiro => {
+                const tableId = `${gaveteiro.id}-matrix-table`;
+                const table = document.getElementById(tableId);
+                if (!table) {
+                    console.warn(`Tabela com ID '${tableId}' não encontrada.`);
+                    return;
+                }
+
+                // Cria o mapa de células para este gaveteiro
+                const currentGaveteiroCells = new Map();
+
+                // Percorre as linhas de dados (ignorando o thead e a linha de cabeçalho de colunas 'a'-'h')
+                // O seletor 'tbody > tr[data-row-key]' seleciona APENAS as linhas que representam as fileiras (1-8)
+                Array.from(table.querySelectorAll('tbody > tr[data-row-key]')).forEach(row => {
+                    const rowKey = row.dataset.rowKey; // Pega o '1', '2', ..., '8'
+
+                    // Pega as células de dados nesta linha (ignorando a primeira que é o indexador '1' a '8')
+                    Array.from(row.querySelectorAll('td[data-col-key]')).forEach(cell => {
+                        const colKey = cell.dataset.colKey; // Pega o 'a', 'b', ..., 'h'
+                        // Armazena a referência da célula no mapa
+                        // console.log(`Mapping ${gaveteiro.id}, R:${rowKey}, C:${colKey}`); // Para debug
+                        const key = `${gaveteiro.id}-${rowKey}-${colKey}`;
+                        cellMap.set(key, cell);
+                    });
+                });
+            });
+
+            // Preenche as células com as informações das ferramentas
+            allData.ferramentas.forEach(tool => {
+                const { gaveteiroId, rowKey, colKey } = tool.localizacao;
+                const cellKey = `${gaveteiroId}-${rowKey}-${colKey}`;
+                const cell = cellMap.get(cellKey);
+
+                if (cell) {
+                    cell.innerHTML = `<strong>${tool.nome}</strong><br>${tool.classificacao}`;
+                    cell.dataset.toolId = tool.id; // Adiciona o ID da ferramenta na célula
+                } else {
+                    console.warn(`Célula não encontrada para a ferramenta ${tool.id}: Gaveteiro ${gaveteiroId}, Linha ${rowKey}, Coluna ${colKey}`);
+                }
+            });
+        }
+
+        function renderProceduresList(procedimentos) {
+            const procedureItemsUl = document.getElementById('procedureItems');
+            procedureItemsUl.innerHTML = ''; // Limpa o "Carregando..."
+
+            procedimentos.forEach(proc => {
+                const li = document.createElement('li');
+                li.textContent = proc.nome;
+                li.dataset.procedureId = proc.id; // Armazena o ID do procedimento no elemento
+                li.addEventListener('click', () => selectProcedure(proc.id));
+                procedureItemsUl.appendChild(li);
+            });
+        }
+
+        function selectProcedure(procedureId) {
+            // 1. Desselecionar procedimento anterior na lista
+            const currentSelected = document.querySelector('#procedimentoList li.selected-procedure');
+            if (currentSelected) {
+                currentSelected.classList.remove('selected-procedure');
+            }
+            // Selecionar o novo procedimento na lista
+            const newSelected = document.querySelector(`#procedimentoList li[data-procedure-id="${procedureId}"]`);
+            if (newSelected) {
+                newSelected.classList.add('selected-procedure');
+            }
+
+            // 2. Limpar todos os destaques existentes em AMBAS as matrizes
+            const highlightedCells = document.querySelectorAll('.highlighted-tool-cell');
+            highlightedCells.forEach(cell => {
+                cell.classList.remove('highlighted-tool-cell');
+            });
+
+            // 3. Encontrar o procedimento selecionado no JSON
+            const selectedProcedure = allData.procedimentos.find(p => p.id === procedureId);
+
+            if (selectedProcedure) {
+                // 4. Obter os IDs das ferramentas para este procedimento
+                const toolsToHighlightIds = selectedProcedure.ferramentas_ids;
+
+                // 5. Destacar as células correspondentes nas matrizes
+                toolsToHighlightIds.forEach(toolId => {
+                    const tool = allData.ferramentas.find(f => f.id === toolId);
+                    if (tool && tool.localizacao) {
+                        const { gaveteiroId, rowKey, colKey } = tool.localizacao;
+                        const cellKey = `${gaveteiroId}-${rowKey}-${colKey}`;
+                        const cell = cellMap.get(cellKey);
+
+                        if (cell) {
+                            cell.classList.add('highlighted-tool-cell');
+                        } else {
+                            console.warn(`Célula para a ferramenta ${tool.nome} (ID: ${tool.id}) não encontrada no DOM.`);
+                        }
+                    } else {
+                        console.warn(`Informações de localização da ferramenta ${toolId} não encontradas ou incompletas.`);
+                    }
+                });
+            }
+        }
+    </script>
+</body>
+</html>
