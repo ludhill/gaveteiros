@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de G-code 2D</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #1a1a1a;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            width: 100%;
+            max-width: 1200px;
+            justify-content: center;
+        }
+        .controls {
+            flex: 1;
+            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .viewer {
+            flex: 2;
+            min-width: 500px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        textarea {
+            width: 100%;
+            height: 300px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9em;
+            box-sizing: border-box; /* Garante que padding não aumente a largura */
+        }
+        button, input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007acc;
+            color: white;
+            font-size: 1em;
+            cursor: pointer;
+            text-align: center;
+        }
+        input[type="file"] {
+            background-color: #5cb85c;
+        }
+        canvas {
+            border: 2px solid #333;
+            background-color: #fff;
+        }
+        .separator {
+            text-align: center;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Visualizador de G-code 2D</h1>
+
+    <div class="container">
+        <div class="controls">
+            <h3>Insira o G-code aqui:</h3>
+            <textarea id="gcode-input" placeholder="Cole seu G-code aqui... Ex:&#10;G0 X10 Y10&#10;G1 X50 Y10&#10;G1 X50 Y50&#10;G1 X10 Y50&#10;G1 X10 Y10"></textarea>
+            <button id="process-button">Processar G-code do Texto</button>
+            <div class="separator">ou</div>
+            <label for="gcode-file" style="cursor: pointer;">
+                <div style="padding: 12px; border-radius: 5px; background-color: #5cb85c; color: white;">Carregar Arquivo (.txt, .gcode, .nc)</div>
+            </label>
+            <input type="file" id="gcode-file" accept=".gcode,.nc,.txt" style="display: none;">
+        </div>
+
+        <div class="viewer">
+            <canvas id="viewer-canvas-2d" width="600" height="500"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. CONFIGURAÇÃO INICIAL ---
+        const canvas = document.getElementById('viewer-canvas-2d');
+        const ctx = canvas.getContext('2d');
+        const gcodeInput = document.getElementById('gcode-input');
+        const processButton = document.getElementById('process-button');
+        const fileInput = document.getElementById('gcode-file');
+        
+        // --- 2. FUNÇÃO PRINCIPAL DE RENDERIZAÇÃO ---
+        function parseAndRender2D(gcode) {
+            // Limpa o canvas antes de desenhar
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const lines = gcode.split('\n');
+            let lastPos = { x: 0, y: 0 };
+            
+            // Inicia o caminho de desenho
+            ctx.beginPath();
+            // A origem do G-code (0,0) é geralmente no canto inferior esquerdo.
+            // A origem do canvas é no canto superior esquerdo. Vamos inverter o eixo Y.
+            // E mover a origem para o canto inferior esquerdo do canvas.
+            ctx.transform(1, 0, 0, -1, 0, canvas.height);
+            // Movemos a "caneta" para a posição inicial
+            ctx.moveTo(lastPos.x, lastPos.y);
+
+            for (const line of lines) {
+                const trimmedLine = line.trim().split(';')[0]; // Ignora comentários
+                let command = '';
+                if (trimmedLine.startsWith('G0') || trimmedLine.startsWith('G1')) {
+                    command = trimmedLine.startsWith('G0') ? 'G0' : 'G1';
+                } else {
+                    continue; // Pula linhas que não são de movimento
+                }
+                
+                let currentPos = { ...lastPos };
+                
+                const parts = trimmedLine.split(' ');
+                parts.forEach(part => {
+                    if (part.startsWith('X')) {
+                        currentPos.x = parseFloat(part.substring(1));
+                    }
+                    if (part.startsWith('Y')) {
+                        currentPos.y = parseFloat(part.substring(1));
+                    }
+                });
+
+                if (command === 'G1') { // Movimento de corte/desenho
+                    ctx.strokeStyle = '#000000'; // Preto
+                    ctx.lineWidth = 2;
+                    ctx.lineTo(currentPos.x, currentPos.y);
+                } else if (command === 'G0') { // Movimento de deslocamento
+                    // Finaliza o traço anterior
+                    ctx.stroke(); 
+                    // Move a "caneta" sem desenhar
+                    ctx.strokeStyle = '#007acc'; // Azul
+                    ctx.lineWidth = 0.5;
+                    ctx.beginPath(); // Começa um novo traço
+                    ctx.moveTo(currentPos.x, currentPos.y);
+                }
+
+                lastPos = { ...currentPos };
+            }
+
+            // Garante que o último segmento seja desenhado
+            ctx.stroke();
+            
+            // Reseta a transformação para que futuros desenhos (se houver) não sejam afetados
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+        }
+
+        // --- 3. EVENT LISTENERS PARA OS CONTROLES ---
+        
+        // Evento para o botão de processar texto
+        processButton.addEventListener('click', () => {
+            const gcodeText = gcodeInput.value;
+            if (gcodeText) {
+                parseAndRender2D(gcodeText);
+            } else {
+                alert("A caixa de texto está vazia. Cole algum G-code para processar.");
+            }
+        });
+
+        // Evento para o input de arquivo
+        fileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) {
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const fileContent = e.target.result;
+                gcodeInput.value = fileContent; // Coloca o conteúdo do arquivo na caixa de texto
+                parseAndRender2D(fileContent); // E renderiza
+            };
+            reader.readAsText(file);
+        });
+
+    </script>
+</body>
+</html>
