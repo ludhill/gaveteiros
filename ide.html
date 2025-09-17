@@ -1,0 +1,422 @@
+<head>
+  <meta charset="UTF-8">
+  <title>Simulador de Torno CNC</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- CodeMirror: Editor estilo IDE -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/clike/clike.min.js"></script>
+
+  <!-- Three.js: Visualização 3D -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f9f9f9;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .controls {
+      width: 100%;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+    }
+
+    .editor-buttons button,
+    .editor-buttons select,
+    .editor-buttons input[type="color"] {
+      margin: 5px;
+      padding: 6px 12px;
+      font-size: 14px;
+    }
+
+    .viewer-section {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+      margin-top: 30px;
+    }
+
+    .viewer-box {
+      width: 100%;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+    }
+
+    canvas {
+      width: 100%;
+      height: 400px;
+      border: 1px solid #ccc;
+      background-color: #fff;
+    }
+
+    #modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #000000aa;
+      z-index: 999;
+    }
+
+    #modal-content {
+      margin: 5% auto;
+      width: 90%;
+      height: 90%;
+      background: white;
+      position: relative;
+      padding: 10px;
+      border-radius: 8px;
+    }
+
+    #modal-content canvas {
+      width: 100%;
+      height: 100%;
+    }
+
+    #modal-content span {
+      position: absolute;
+      top: 10px;
+      right: 20px;
+      cursor: pointer;
+      font-size: 20px;
+    }
+
+    /* Estilos dinâmicos para G-code */
+    .cm-gcode-G0,
+    .cm-gcode-G1,
+    .cm-gcode-G2,
+    .cm-gcode-G3,
+    .cm-gcode-G83,
+    .cm-gcode-M99 {
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>Simulador de Usinagem de Torno CNC</h1>
+  <div class="container">
+    <div class="controls">
+      <h3>1. Parâmetros da Peça</h3>
+      <label for="cilindro-diametro">Diâmetro do Cilindro (mm):</label>
+      <input type="number" id="cilindro-diametro" value="50">
+      <label for="cilindro-comprimento">Comprimento do Cilindro (mm):</label>
+      <input type="number" id="cilindro-comprimento" value="100">
+
+      <h3>2. Código G</h3>
+      <textarea id="gcode-input"></textarea>
+
+      <div class="editor-buttons">
+        <button onclick="simularUsinagem()">Simular Usinagem</button>
+        <button onclick="salvarPreset()">Salvar Preset</button>
+        <button onclick="carregarPreset()">Carregar Preset</button>
+        <button onclick="resetarPreset()">Resetar</button>
+        <button onclick="exportarPresetParaArquivo()">Exportar para TXT</button>
+        <br>
+        <select id="gcode-selector">
+          <option value="G0">G0</option>
+          <option value="G1">G1</option>
+          <option value="G2">G2</option>
+          <option value="G3">G3</option>
+          <option value="G83">G83</option>
+          <option value="M99">M99</option>
+        </select>
+        <input type="color" id="color-picker" value="#0077cc">
+        <button onclick="aplicarCor()">Aplicar Cor</button>
+        <button onclick="salvarPresetCor()">Salvar Preset Cor</button>
+        <button onclick="carregarPresetCor()">Carregar Preset Cor</button>
+      </div>
+    </div>
+
+    <div class="viewer-section">
+      <div class="viewer-box">
+        <h3>Perfil 2D (Vista Lateral)</h3>
+        <canvas id="canvas-2d"></canvas>
+        <button onclick="abrirModal('canvas-2d')">Expandir 2D</button>
+      </div>
+      <div class="viewer-box">
+        <h3>Peça Final 3D</h3>
+        <canvas id="canvas-3d"></canvas>
+        <button onclick="abrirModal('canvas-3d')">Expandir 3D</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal">
+    <div id="modal-content">
+      <span onclick="fecharModal()">❌</span>
+    </div>
+  </div>
+
+<script>
+  // Inicializa o editor CodeMirror
+  let editor = CodeMirror.fromTextArea(document.getElementById("gcode-input"), {
+    lineNumbers: true,
+    mode: "text/x-csrc",
+    theme: "default"
+  });
+
+  let coresGcode = {};
+
+  function aplicarCor() {
+    const comando = document.getElementById("gcode-selector").value;
+    const cor = document.getElementById("color-picker").value;
+    coresGcode[comando] = cor;
+    atualizarOverlay();
+  }
+
+  function atualizarOverlay() {
+    editor.removeOverlay("gcodeOverlay");
+    editor.addOverlay({
+      name: "gcodeOverlay",
+      token: function(stream) {
+        for (let cmd in coresGcode) {
+          if (stream.match(new RegExp(cmd + "\\b"))) {
+            stream.skipToEnd();
+            return "gcode-" + cmd;
+          }
+        }
+        stream.next();
+        return null;
+      }
+    });
+
+    const style = document.createElement("style");
+    style.innerHTML = Object.entries(coresGcode).map(([cmd, cor]) =>
+      `.cm-gcode-${cmd} { color: ${cor}; }`
+    ).join("\n");
+    document.head.appendChild(style);
+  }
+
+  function salvarPreset() {
+    localStorage.setItem("gcodePreset", editor.getValue());
+  }
+
+  function carregarPreset() {
+    const preset = localStorage.getItem("gcodePreset");
+    if (preset) editor.setValue(preset);
+  }
+
+  function resetarPreset() {
+    editor.setValue("");
+  }
+
+  function salvarPresetCor() {
+    localStorage.setItem("presetCoresGcode", JSON.stringify(coresGcode));
+  }
+
+  function carregarPresetCor() {
+    const preset = localStorage.getItem("presetCoresGcode");
+    if (preset) {
+      coresGcode = JSON.parse(preset);
+      atualizarOverlay();
+    }
+  }
+
+  function exportarPresetParaArquivo() {
+    const blob = new Blob([JSON.stringify(coresGcode, null, 2)], { type: "text/plain" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "preset_cores_gcode.txt";
+    link.click();
+  }
+
+  function abrirModal(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    const clone = canvas.cloneNode(true);
+    const modalContent = document.getElementById("modal-content");
+    modalContent.innerHTML = '<span onclick="fecharModal()">❌</span>';
+    modalContent.appendChild(clone);
+    document.getElementById("modal").style.display = "block";
+  }
+
+  function fecharModal() {
+    document.getElementById("modal").style.display = "none";
+  }
+
+  // Configuração 3D
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xeeeeee);
+  const canvas3d = document.getElementById('canvas-3d');
+  const camera = new THREE.PerspectiveCamera(50, canvas3d.clientWidth / canvas3d.clientHeight, 0.1, 1000);
+  camera.position.set(100, 100, 150);
+  const renderer = new THREE.WebGLRenderer({ canvas: canvas3d, antialias: true });
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+  scene.add(ambientLight);
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  directionalLight.position.set(1, 1, 1);
+  scene.add(directionalLight);
+  let pecaMesh;
+
+  const canvas2d = document.getElementById('canvas-2d');
+  const ctx2d = canvas2d.getContext('2d');
+
+  function simularUsinagem() {
+    const diametro = parseFloat(document.getElementById('cilindro-diametro').value);
+    const comprimento = parseFloat(document.getElementById('cilindro-comprimento').value);
+    const gcode = editor.getValue();
+    const raio = diametro / 2;
+
+    const perfilInicialPoints = [
+      new THREE.Vector2(0, 0),
+      new THREE.Vector2(raio, 0),
+      new THREE.Vector2(raio, comprimento),
+      new THREE.Vector2(0, comprimento)
+    ];
+
+    const perfilFinalPoints = processarGCode(gcode, raio, comprimento);
+    desenharPerfil2D(perfilInicialPoints, perfilFinalPoints);
+    gerarPeca3D(perfilFinalPoints);
+  }
+
+  function processarGCode(gcode, raioMax, comprimentoMax) {
+    const lines = gcode.split('\n');
+    let perfil = [new THREE.Vector2(0, 0), new THREE.Vector2(raioMax, 0)];
+    let pos = { x: raioMax, z: 0 };
+
+    for (const line of lines) {
+      const trimmedLine = line.trim().toUpperCase().split(';')[0];
+      if (!trimmedLine) continue;
+
+      let cmd = trimmedLine.split(' ')[0];
+      if (!['G1', 'G2', 'G3'].includes(cmd)) continue;
+
+      let newPos = { ...pos };
+      let raioArco = null;
+
+      const parts = trimmedLine.match(/[A-Z][-\d\.]+/g) || [];
+      parts.forEach(part => {
+        const letter = part.charAt(0);
+        const value = parseFloat(part.substring(1));
+        if (letter === 'X') newPos.x = value / 2;
+        if (letter === 'Z') newPos.z = Math.abs(value);
+        if (letter === 'R') raioArco = value;
+      });
+
+      if (cmd === 'G1') {
+        perfil.push(new THREE.Vector2(newPos.x, newPos.z));
+      } else if ((cmd === 'G2' || cmd === 'G3') && raioArco !== null) {
+        const startPoint = new THREE.Vector2(pos.x, pos.z);
+        const endPoint = new THREE.Vector2(newPos.x, newPos.z);
+        let midX = (startPoint.x + endPoint.x) / 2;
+        let midZ = (startPoint.y + endPoint.y) / 2;
+        let dist = startPoint.distanceTo(endPoint) / 2;
+        let normal = new THREE.Vector2(endPoint.y - startPoint.y, -(endPoint.x - startPoint.x)).normalize();
+        let alturaArco = Math.sqrt(Math.max(0, raioArco * raioArco - dist * dist));
+        midX += normal.x * alturaArco * (cmd === 'G3' ? 1 : -1);
+        midZ += normal.y * alturaArco * (cmd === 'G3' ? 1 : -1);
+
+        perfil.push(new THREE.Vector2(midX, midZ));
+        perfil.push(endPoint);
+      }
+
+      pos = { ...newPos };
+    }
+
+    perfil.push(new THREE.Vector2(pos.x, comprimentoMax));
+    perfil.push(new THREE.Vector2(0, comprimentoMax));
+    return perfil;
+  }
+
+  function desenharPerfil2D(inicial, final) {
+    ctx2d.clearRect(0, 0, canvas2d.width, canvas2d.height);
+    ctx2d.save();
+
+    const maxDim = Math.max(
+      ...inicial.map(p => p.x),
+      ...inicial.map(p => p.y),
+      ...final.map(p => p.x),
+      ...final.map(p => p.y)
+    );
+    const scale = Math.min(canvas2d.width / maxDim, canvas2d.height / maxDim) * 0.9;
+
+    ctx2d.translate(10, canvas2d.height / 2);
+    ctx2d.scale(scale, -scale);
+
+    ctx2d.beginPath();
+    ctx2d.moveTo(inicial[0].x, inicial[0].y);
+    inicial.forEach(p => ctx2d.lineTo(p.x, p.y));
+    ctx2d.closePath();
+    ctx2d.strokeStyle = '#cccccc';
+    ctx2d.lineWidth = 1 / scale;
+    ctx2d.stroke();
+
+    ctx2d.beginPath();
+    ctx2d.moveTo(final[0].x, final[0].y);
+    final.forEach(p => ctx2d.lineTo(p.x, p.y));
+    ctx2d.closePath();
+    ctx2d.fillStyle = 'rgba(0, 0, 0, 0.1)';
+    ctx2d.fill();
+    ctx2d.strokeStyle = '#333333';
+    ctx2d.lineWidth = 2 / scale;
+    ctx2d.stroke();
+
+    ctx2d.beginPath();
+    ctx2d.arc(0, 0, 2 / scale, 0, 2 * Math.PI);
+    ctx2d.fillStyle = 'red';
+    ctx2d.fill();
+
+    ctx2d.restore();
+  }
+
+  function gerarPeca3D(perfil) {
+    if (pecaMesh) {
+      scene.remove(pecaMesh);
+      pecaMesh.geometry.dispose();
+      pecaMesh.material.dispose();
+    }
+
+    const points = perfil.map(p => new THREE.Vector2(p.x, p.y));
+    const geometry = new THREE.LatheGeometry(points, 64);
+    const material = new THREE.MeshStandardMaterial({
+      color: 0xaaaaaa,
+      metalness: 0.8,
+      roughness: 0.3
+    });
+
+    pecaMesh = new THREE.Mesh(geometry, material);
+    pecaMesh.rotation.x = -Math.PI / 2;
+    scene.add(pecaMesh);
+
+    const box = new THREE.Box3().setFromObject(pecaMesh);
+    const center = box.getCenter(new THREE.Vector3());
+    controls.target.copy(center);
+    controls.update();
+  }
+
+  function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+  }
+
+  // Inicializa com exemplo padrão
+  editor.setValue('G1 Z-20 X40\nG1 Z-40\nG2 Z-60 X20 R10\nG1 Z-80');
+  simularUsinagem();
+  animate();
+</script>
+
+</body>
